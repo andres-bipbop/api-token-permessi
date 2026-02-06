@@ -1,18 +1,6 @@
 <?php
-    require "send_requests.php";
-
-    function checkToken($jwtAccess, $jwtRefresh = null) {
-        $data = json_decode(verifyAccessToken($jwtAccess),true);
-        if ($data["message"] != "Access Granted.") {
-            $data = json_decode(getAccessToken($jwtRefresh), true);
-            if ($data["message"] != "Access Granted.") {
-                header("location: form.php");
-                exit;
-            }
-            checkToken($jwtAccess);
-        }
-        return $data["data"]->userdata;
-    }
+    require "send_token_requests.php";
+    require "send_queries.php";
 
     if (!isset($_COOKIE['jwtAccess']) || !isset($_COOKIE['jwtRefresh'])) {
         header("location: form.php");
@@ -22,20 +10,26 @@
     $jwtAccess = $_COOKIE['jwtAccess'];
     $jwtRefresh = $_COOKIE['jwtRefresh'];
 
-    $userData = checkToken($jwtAccess);
+    $tokenData = checkToken($jwtAccess, $jwtRefresh); //(send_token_resquests.php)
+    $userData = getUserMemberships($tokenData["data"]["userdata"]["id"]); //(send_queries.php)
 
     var_dump($userData);
 
+    if ($userData["role_title"] === "Admin User") {
+        $users = sendCustomQuery("SELECT 
+    u.username,
+    u.name,
+    r.title AS role
+FROM app_users u
+INNER JOIN app_members m ON u.id = m.user_id
+INNER JOIN app_roles r ON m.role_id = r.role_id
+WHERE u.status = 'active';
+");
+    }
+
+
 
     /*
-    function getUsers($link) {
-        $result = mysqli_query($link, "SELECT username, name, role FROM users");
-        $users = [];
-        while($row = mysqli_fetch_assoc($result)){
-            $users[] = $row;
-        }
-        return $users;
-    }
 
     if (isset($_GET["deleteUser"])) {
         $username = $_GET["deleteUser"];
@@ -75,6 +69,7 @@
     }
 
     $users = getUsers($link);
+    */
 ?>
 
 <!doctype html>
@@ -104,21 +99,47 @@
         <main>
             <div class="container mt-5">
                 <div class="row justify-content-center">
-                    <div class="col-md-6">
+                    <div class="col-md-9">
                         <div class="card">
                             <div class="card-body">
-                                <?php echo "<h5 class='card-title' id='form-title'>Hey, {$_SESSION['name']} </h5>\n
-                                <h6 class='card-subtitle mb-2 mt-2 text-muted'>{$_SESSION['username']}</h6>\n
-                                <p class='card-text'>Your role: {$_SESSION['role']}</p>"
+                                <?php echo "<h5 class='card-title' id='form-title'>Hey, {$userData['user_name']} </h5>\n
+                                <h6 class='card-subtitle mb-2 mt-2 text-muted'>{$userData['username']}</h6>\n
+                                <p class='card-text'>Your role: {$userData['role_title']}</p>"
                                 ?>
                                 <button class="btn btn-danger" onclick="window.location.href='logout.php'">Logout</button>
-                                <button class="btn btn-danger" onclick="window.location.href='visualizzaUtente.php?deleteUser=<?php echo $_SESSION['username']; ?>'">Delete this user</button>
+                                <button class="btn btn-danger" onclick="window.location.href='visualizzaUtente.php?deleteUser=<?php echo $userData['username']; ?>'">Delete this user</button>
                                 <?php
-                                    if ($_SESSION["role"] === "admin") {
-                                        echo "<button class='btn btn-danger' onclick=\"window.location.href = 'visualizzaUtente.php?removeAdmin={$_SESSION['username']}'\">Remove this admin</button>";
+                                    if ($userData["role_title"] === "Standard User") {
+                                        echo "<button class='btn btn-danger' onclick=\"window.location.href = 'visualizzaUtente.php?removeAdmin={$userData['username']}'\">Remove this admin</button>";
                                     }
                                 ?>
-                                <?php if ($_SESSION["role"] === "admin"): ?>
+                                <?php if ($userData["role_title"] === "Admin User"): ?>
+
+                                <!-- Modal -->
+                                <div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h1 class="modal-title fs-5" id="staticBackdropLabel">Roles & Permissions</h1>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="btn-group" role="group" aria-label="Basic radio toggle button group">
+                                                    <input type="radio" class="btn-check" name="btnradio" id="btnradioStandardMember" autocomplete="off">
+                                                    <label class="btn btn-outline-primary" for="btnradioStandardMember">Standard Member</label>
+                                                    <input type="radio" class="btn-check" name="btnradio" id="btnradioCollaborator" autocomplete="off">
+                                                    <label class="btn btn-outline-primary" for="btnradioCollaborator">Collaborator</label>
+                                                    <input type="radio" class="btn-check" name="btnradio" id="btnradioAdministrator" autocomplete="off">
+                                                    <label class="btn btn-outline-primary" for="btnradioAdministrator">Administrator</label>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                <button type="button" class="btn btn-primary">Save changes</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
                                     <h5 class="mt-5">User List</h5>
                                     <table class="table table-hover mt-2">
@@ -133,14 +154,15 @@
                                         <tbody>
                                             <?php
                                                 foreach($users as $key=>$user){
-                                                    if ($user["username"] === $_SESSION["username"]) continue;
+                                                    if ($user["username"] == $userData["username"]) continue;
                                                     echo "<tr><th scope='row'>{$user["username"]}</th><td>{$user["name"]}</td><td>{$user["role"]}</td>";
                                                     echo "<td><button class='btn btn-secondary me-2' onclick=\"window.location.href = 'visualizzaUtente.php?deleteUser={$user["username"]}'\">Delete</button>";
-                                                    if($user["role"] === "admin"){
+                                                    if($user["role"] == "admin"){
                                                         echo "<button class='btn btn-danger' onclick=\"window.location.href = 'visualizzaUtente.php?removeAdmin={$user["username"]}'\">Remove Admin</button>";
                                                     } else {
-                                                        echo "<button class='btn btn-primary' onclick=\"window.location.href = 'visualizzaUtente.php?addAdmin={$user["username"]}'\">Add Admin</button></td>";
+                                                        echo "<button class='btn btn-primary' onclick=\"window.location.href = 'visualizzaUtente.php?addAdmin={$user["username"]}'\">Add Admin</button>";
                                                     }
+                                                    echo "<button type='button' onclick=\"addCheckedAttribute('btnradio{$user["role"]}')\"  class='btn btn-primary ms-2' data-bs-toggle='modal' data-bs-target='#staticBackdrop'>Manage Role</button></td>";
                                                     echo "</tr>";
                                                 }
                                             ?>
@@ -170,4 +192,9 @@
         ></script>
     </body>
 </html>
-*/
+
+<script>
+    function addCheckedAttribute(id) {
+        document.getElementById(id).setAttribute("checked", "true");
+    }
+</script>
