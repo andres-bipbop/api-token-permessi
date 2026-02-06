@@ -18,7 +18,7 @@
     if ($segments[1] == 'token' && $segments[2] == 'refresh') {
         $username = $data["username"] ?? null;
         $id = $data["id"] ?? null;
-        TokenEndpoints::generateRefreshToken($id, $username);
+        TokenEndpoints::generateRefreshToken($username, $id);
         exit;
     }
 
