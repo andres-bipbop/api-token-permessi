@@ -1,22 +1,21 @@
 <?php
     require "secret_pepper.php";
-    require "send_requests.php";
+    require "send_token_requests.php";
+    require "send_queries.php";
 
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $username = $_POST["username"];
         $password = $_POST["password"];
         try {
-            $result = sendQuery($username);
-            $data = json_decode($result, true)[0];
+            $data = getUserData($username);
+            var_dump($data);
             if ($data) {
                 if ($data["status"] == "active") {
                     if (explode(".", $data["password"])[1] === hash("sha256", explode(".", $data["password"])[0] . $password . $secretPepper)) {
-                        $refreshJWT = json_decode(getRefreshToken(), true)["refreshToken"];
+                        $refreshJWT = json_decode(getRefreshToken($data["username"], $data["id"]), true)["refreshToken"];
                         $accessJWT = json_decode(getAccessToken($refreshJWT), true)["accessToken"];
-                        var_dump($refreshJWT);
-                        var_dump($accessJWT);
-                        if(setcookie(name:"jwtAccess", value:$accessJWT, httponly:true)) echo "Access token cookie set<br>";
-                        if(setcookie(name:"jwtRefresh", value:$refreshJWT, httponly:true)) echo "Refresh token cookie set<br>";
+                        setcookie(name:"jwtAccess", value:$accessJWT, httponly:true);
+                        setcookie(name:"jwtRefresh", value:$refreshJWT, httponly:true);
                         header("location: home.php");
                         die();
                     }
