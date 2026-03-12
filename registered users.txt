@@ -1,16 +1,16 @@
 usa questi utenti per loggarti nella form:
 
-username: Fabione64
+username: Fabione64 (publisher)
 pw: 1234
 
-username: ErPupone
+username: ErPupone (standard user)
 pw: dajeRoma
 
-username: QuellaColVocione
+username: QuellaColVocione (publisher)
 pw: cepostaperte
 
-username: Bisio
+username: Bisio (standard user)
 pw: bisio
 
-username: StupratoreSeriale
+username: StupratoreSeriale (admin)
 pw: 0000
